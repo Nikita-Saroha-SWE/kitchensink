@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Member Registration</title>
+    <link rel="stylesheet" th:href="@{/css/userregister.css}">
+    <meta name="_csrf" th:content="${_csrf.token}" />
+    <meta name="_csrf_header" th:content="${_csrf.headerName}" />
+</head>
+<body>
+<div class="form-wrapper">
+    <form th:action="@{/logout}" method="post" class="logout-form">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+        <button type="submit" class="btn logout-btn">Logout</button>
+    </form>
+
+    <h1>Welcome, <span th:text="${user.username}">User</span>!</h1>
+
+    <h2>Enter your profile information</h2>
+    
+    <div id="error-message" class="alert alert-danger" style="display:none;"></div>
+
+    <div id="memberForm">
+        <form id="editMemberForm">
+            <table>
+                <tr>
+                    <td><label for="name">Name:</label></td>
+                    <td><input type="text" id="name" name="name" required /></td>
+                    <td><div id="nameError" class="invalid"></div></td>
+                </tr>
+                <tr>
+                    <td><label for="email">Email:</label></td>
+                    <td><input type="email" id="email" name="email" required /></td>
+                    <td><div id="emailError" class="invalid"></div></td>
+                </tr>
+                <tr>
+                    <td><label for="phoneNumber">Phone #:</label></td>
+                    <td><input type="text" id="phoneNumber" name="phoneNumber" /></td>
+                    <td><div id="phoneNumberError" class="invalid"></div></td>
+                </tr>
+            </table>
+
+            <input type="hidden" id="id" />
+            <input type="hidden" id="userId" />
+            <input type="hidden" id="role" />
+            <input type="hidden" id="_csrfToken" th:value="${_csrf.token}" />
+            <input type="hidden" id="_csrfHeader" th:value="${_csrf.headerName}" />
+
+            <p>
+                <button type="submit" class="btn save-btn">Save</button>
+                <div class="messages">
+                    <div id="successMessage" class="valid"></div>
+                </div>
+            </p>
+        </form>
+    </div>
+</div>
+
+<script>
+    const csrfToken = document.getElementById('_csrfToken').value;
+    const csrfHeader = document.getElementById('_csrfHeader').value;
+
+    async function loadMember() {
+		const token = await fetchToken();
+        const res = await fetch("/api/user/member", {
+		    headers: {
+		        Authorization: 'Bearer ' + token
+		    }
+		});
+        const member = await res.json();
+
+        document.getElementById("id").value = member.id;
+        document.getElementById("userId").value = member.userId;
+        document.getElementById("role").value = member.role || "USER";
+        document.getElementById("name").value = member.name || "";
+        document.getElementById("email").value = member.email || "";
+        document.getElementById("phoneNumber").value = member.phoneNumber || "";
+    }
+
+    function validateFormInputs(member) {
+        let isValid = true;
+        clearErrors();
+
+        if (!member.name || /\d/.test(member.name)) {
+            document.getElementById("nameError").textContent = "Name must not contain numbers";
+            isValid = false;
+        }
+
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	    if (!member.email || !emailPattern.test(member.email)) {
+	        document.getElementById("emailError").textContent = "Enter a valid email address";
+	        isValid = false;
+	    }
+	
+	    if (member.phoneNumber && !/^\d{10}$/.test(member.phoneNumber)) {
+	        document.getElementById("phoneNumberError").textContent = "Phone number must be 10 digits";
+	        isValid = false;
+	    }
+
+        return isValid;
+    }
+
+    function clearErrors() {
+		document.getElementById("error-message").style.display = "none";
+        ["nameError", "emailError", "phoneNumberError"].forEach(id => {
+            document.getElementById(id).textContent = "";
+        });
+        document.getElementById("successMessage").textContent = "";
+    }
+
+    function showError(err) {
+		if (errorData.error) {
+            // General error message
+            document.getElementById("error-message").innerText = errorData.error;
+            document.getElementById("error-message").style.display = "block";
+        } else {
+	        ["name", "email", "phoneNumber"].forEach(field => {
+	            document.getElementById(`${field}Error`).textContent = err[field] || "";
+	        });
+	    }
+    }
+
+    document.getElementById("editMemberForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        const member = {
+            id: document.getElementById("id").value,
+            userId: document.getElementById("userId").value,
+            name: document.getElementById("name").value.trim(),
+            email: document.getElementById("email").value.trim(),
+            phoneNumber: document.getElementById("phoneNumber").value.trim(),
+            role: document.getElementById("role").value
+        };
+
+        if (!validateFormInputs(member)) {
+            return;
+        }
+
+        try {
+			const token = await fetchToken();
+            const res = await fetch("/api/user/member", {
+                method: "PUT",
+                headers: {
+					Authorization: 'Bearer ' + token,
+                    "Content-Type": "application/json",
+                    [csrfHeader]: csrfToken
+                },
+                body: JSON.stringify(member)
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                showError(error);
+                return;
+            }
+
+            const updated = await res.json();
+            document.getElementById("successMessage").textContent = "Profile updated successfully!";
+        } catch (err) {
+            console.error("Update failed", err);
+        }
+    });
+    
+    async function fetchToken() {
+			const response = await fetch('/auth/token');
+			if (!response.ok) throw new Error("Token fetch failed");
+
+			return await response.text(); // the access token
+		}
+
+    loadMember();
+</script>
+</body>
+</html>
