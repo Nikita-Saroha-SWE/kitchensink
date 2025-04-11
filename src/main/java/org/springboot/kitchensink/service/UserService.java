@@ -37,14 +37,14 @@ public class UserService{
 			user = existingUser.get();
 		} else {
 			Member member = null;
-			user = new User();
-			user.setUserId(userId);
-			user.setUsername(username);
 //			user = userRepository.save(user);
 			Member existingMember = memberService.findByUserId(userId);
 			if(existingMember != null && existingMember.getRole().equalsIgnoreCase("ADMIN")) {
 				member = existingMember;
 			}else {
+				user = new User();
+				user.setUserId(userId);
+				user.setUsername(username);
 				member = memberService.registerMemberWithUser(email, user.getUserId(), "USER");
 			}
 			user.setMember(member);
